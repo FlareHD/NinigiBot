@@ -323,7 +323,7 @@ BST: ${BST}`, false)
             };
             // Return the joined string
             returnStr = splitStr.join(' ');
-            if (returnStr == "Type Null") returnStr = "Type: Null";
+            if (returnStr == "Type Null" || returnStr == "Type-Null") returnStr = "Type: Null";
             return returnStr;
         };
 
