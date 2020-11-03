@@ -46,7 +46,7 @@ module.exports.run = async (client, message) => {
                 returnStr = splitStr.charAt(0).toUpperCase() + splitStr.slice(1);
             };
 
-            if (returnStr == "Type Null" || returnStr == "Type-Null") returnStr = "Type: Null";
+            if (returnStr == "Type Null") returnStr = "Type: Null";
             return returnStr;
         };
 
