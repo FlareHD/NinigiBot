@@ -64,10 +64,10 @@ module.exports.run = async (client, message) => {
                             .setColor(globalVars.embedColor)
                             .setAuthor(capitalizeString(response.name))
                             .addField("Type:", getTypeEmotes(response.type.name), false)
-                            .addField("Category:", capitalizeString(response.damage_class.name), true)
-                        if (response.power) moveEmbed.addField("Power:", response.power, true)
-                        if (response.accuracy) moveEmbed.addField("Accuracy:", response.accuracy, true)
-                        if (response.priority !== 0) moveEmbed.addField("Priority:", response.priority, true)
+                            .addField("Category:", capitalizeString(response.damage_class.name), true);
+                        if (response.power) moveEmbed.addField("Power:", response.power, true);
+                        if (response.accuracy) moveEmbed.addField("Accuracy:", response.accuracy, true);
+                        if (response.priority !== 0) moveEmbed.addField("Priority:", response.priority, true);
                         moveEmbed
                             .addField("Target:", capitalizeString(response.target.name), false)
                             .addField("Description:", response.effect_entries[0].effect, false)
@@ -110,14 +110,110 @@ module.exports.run = async (client, message) => {
                     .then(async function (response) {
                         // Log for testing, remove later
                         console.log(response);
+
+                        // Typing
                         let typeString = "";
                         let type1 = response.types[0].type.name;
                         if (response.types[1]) {
-                            let type2 = response.types[1].type.name;
+                            var type2 = response.types[1].type.name;
                             typeString = getTypeEmotes(type1, type2);
                         } else {
                             typeString = getTypeEmotes(type1);
                         };
+
+                        // Typing matchups
+                        let types = {
+                            "normal": { se: [], res: ["rock", "steel"], immune: ["ghost"], effect: 0 },
+                            "fighting": { se: ["normal", "rock", "steel", "ice", "dark"], res: ["flying", "poison", "bug", "psychic", "fairy"], immune: ["ghost"], effect: 0 },
+                            "flying": { se: ["fighting", "bug", "grass"], res: ["rock", "steel", "electric"], immune: [], effect: 0 },
+                            "poison": { se: ["grass", "fairy"], res: ["poison", "ground", "rock", "ghost"], immune: ["steel"], effect: 0 },
+                            "ground": { se: ["poison", "rock", "steel", "fire", "electric"], res: ["bug", "grass"], immune: ["flying"], effect: 0 },
+                            "rock": { se: ["flying", "bug", "fire", "ice"], res: ["fighting", "ground", "steel"], immune: [], effect: 0 },
+                            "bug": { se: ["grass", "psychic", "dark"], res: ["fighting", "flying", "poison", "ghost", "steel", "fire", "fairy"], immune: [], effect: 0 },
+                            "ghost": { se: ["ghost", "psychic"], res: ["dark"], immune: ["normal"], effect: 0 },
+                            "steel": { se: ["rock", "ice", "fairy"], res: ["steel", "fire", "water", "electric"], immune: [], effect: 0 },
+                            "fire": { se: ["bug", "steel", "grass", "ice"], res: ["rock", "fire", "water", "dragon"], immune: [], effect: 0 },
+                            "water": { se: ["ground", "rock", "fire"], res: ["water", "grass", "dragon"], immune: [], effect: 0 },
+                            "grass": { se: ["ground", "rock", "water"], res: ["flying", "poison", "bug", "steel", "fire", "grass", "dragon"], immune: [], effect: 0 },
+                            "electric": { se: ["flying", "water"], res: ["grass", "electric", "dragon"], immune: ["ground"], effect: 0 },
+                            "psychic": { se: ["fighting", "poison"], res: ["steel", "psychic"], immune: ["dark"], effect: 0 },
+                            "ice": { se: ["flying", "ground", "grass", "dragon"], res: ["steel", "fire", "water", "ice"], immune: [], effect: 0 },
+                            "dragon": { se: ["dragon"], res: ["steel"], immune: ["fairy"], effect: 0 },
+                            "dark": { se: ["ghost", "psychic"], res: ["fighting", "dark", "fairy"], immune: [], effect: 0 },
+                            "fairy": { se: ["fighting", "dragon", "dark"], res: ["poison", "steel", "fire"], immune: [], effect: 0 }
+                        };
+
+                        let superEffectives = "";
+                        let resistances = "";
+                        let immunities = "";
+
+                        // Check type matchups
+                        for (let [key, type] of Object.entries(types)) {
+                            let typeName = key;
+
+                            // Dual type Pokemon
+                            if (response.types[1]) {
+                                if (type.se.includes(type1)) type.effect += 1;
+                                if (type.se.includes(type2)) type.effect += 1;
+                                if (type.res.includes(type1)) type.effect += -1;
+                                if (type.res.includes(type2)) type.effect += -1;
+                                if (type.immune.includes(type1) || type.immune.includes(type2)) type.effect = -3;
+                                if (type.effect == 2 || type.effect == -2) {
+                                    typeName = getTypeEmotes(typeName, null, true);
+                                } else {
+                                    typeName = getTypeEmotes(typeName);
+                                };
+                                if (type.effect == 1 || type.effect == 2) {
+                                    if (superEffectives.length == 0) {
+                                        superEffectives = typeName;
+                                    } else {
+                                        superEffectives = `${superEffectives}, ${typeName}`;
+                                    };
+                                };
+                                if (type.effect == -1 || type.effect == -2) {
+                                    if (resistances.length == 0) {
+                                        resistances = typeName;
+                                    } else {
+                                        resistances = `${resistances}, ${typeName}`;
+                                    };
+                                };
+                                if (type.effect == -3) {
+                                    if (immunities.length == 0) {
+                                        immunities = typeName;
+                                    } else {
+                                        immunities = `${immunities}, ${typeName}`;
+                                    };
+                                };
+
+                                // Single type Pokemon
+                            } else {
+                                if (type.se.includes(type1)) {
+                                    if (superEffectives.length == 0) {
+                                        superEffectives = getTypeEmotes(typeName);
+                                    } else {
+                                        superEffectives = `${superEffectives}, ${getTypeEmotes(typeName)}`;
+                                    };
+                                };
+                                if (type.res.includes(type1)) {
+                                    if (resistances.length == 0) {
+                                        resistances = getTypeEmotes(typeName);
+                                    } else {
+                                        resistances = `${resistances}, ${getTypeEmotes(typeName)}`;
+                                    };
+                                };
+                                if (type.immune.includes(type1)) {
+                                    if (immunities.length == 0) {
+                                        immunities = getTypeEmotes(typeName);
+                                    } else {
+                                        immunities = `${immunities}, ${getTypeEmotes(typeName)}`;
+                                    };
+                                };
+                            };
+                        };
+
+                        // Metrics
+                        let weight = `${response.weight / 10}kg`;
+                        let height = `${response.height / 10}m`;
 
                         var pokemonID = leadingZeros(response.id.toString());
                         // edgecase ID corrections, should be put in a JSON sometime. Delta is a nerd.
@@ -173,7 +269,7 @@ module.exports.run = async (client, message) => {
                                     pokemonID = `${AlolaID}-a`;
                                 })
                                 .catch(function (error) {
-                                    console.log(error)
+                                    console.log(error);
                                     return message.channel.send(`> Could not find the specified Pokémon, ${message.author}.`);
                                 });
                         };
@@ -187,7 +283,7 @@ module.exports.run = async (client, message) => {
                                     pokemonID = `${MegaID}-m`;
                                 })
                                 .catch(function (error) {
-                                    console.log(error)
+                                    console.log(error);
                                     return message.channel.send(`> Could not find the specified Pokémon, ${message.author}.`);
                                 });
                         };
@@ -244,12 +340,18 @@ module.exports.run = async (client, message) => {
                         pokemonName = capitalizeString(pokemonName);
                         let abilityStringCapitalized = capitalizeAbilities(abilityString);
 
+                        // Embed building
                         const pkmEmbed = new Discord.MessageEmbed()
                             .setColor(globalVars.embedColor)
                             .setAuthor(`${pokemonID.toUpperCase()}: ${pokemonName}`, icon)
                             .setThumbnail(sprite)
-                            .addField("Type:", typeString, false)
-                        if (abilityString.length > 0) pkmEmbed.addField("Abilities:", abilityStringCapitalized, false)
+                            .addField("Type:", typeString, true)
+                            .addField("Metrics:", `Weight: ${weight}
+Height: ${height}`, true);
+                        if (abilityString.length > 0) pkmEmbed.addField("Abilities:", abilityStringCapitalized, false);
+                        if (superEffectives.length > 0) pkmEmbed.addField("Weaknesses:", superEffectives, false);
+                        if (resistances.length > 0) pkmEmbed.addField("Resistances:", resistances, false);
+                        if (immunities.length > 0) pkmEmbed.addField("Immunities:", immunities, false);
                         pkmEmbed
                             .addField("Stats: (50) (100)", `HP: **${baseHP}** ${HPstats}
 Atk: **${baseAtk}** ${Atkstats}
@@ -265,20 +367,22 @@ BST: ${BST}`, false)
                         return message.channel.send(pkmEmbed)
 
                     }).catch(function (error) {
-                        console.log(error)
+                        console.log(error);
                         return message.channel.send(`> Could not find the specified Pokémon, ${message.author}.`);
                     });
                 break;
         };
 
-        function getTypeEmotes(type1, type2) {
+        function getTypeEmotes(type1, type2, bold) {
             const typeEmoteList = require('../../objects/pokemon/typeEmotes.json');
             let type1Emote = typeEmoteList[type1];
             let type1Name = capitalizeString(type1);
+            if (bold == true) type1Name = `**${type1Name}**`;
             let typeString = `${type1Emote} ${type1Name}`;
             if (type2) {
                 let type2Emote = typeEmoteList[type2];
                 let type2Name = capitalizeString(type2);
+                if (bold == true) type2Name = `**${type2Name}**`;
                 typeString = `${typeString} / ${type2Emote} ${type2Name}`;
             };
             return typeString;
