@@ -1,26 +1,26 @@
 module.exports = async (client, message) => {
+    // Import globals
+    let globalVars = require('./ready');
     try {
         const Discord = require("discord.js");
 
         const log = message.guild.channels.cache.find(channel => channel.name === "log");
         if (!log) return;
-
-        // Import totals
-        let globalVars = require('./ready');
+        if (message.channel == log && message.author == client.user) return;
 
         if (!message) return;
         if (!message.author) return;
 
-        let avatar = null;
-        if (message.author.avatarURL()) avatar = message.author.avatarURL({ format: "png", dynamic: true });
+        let avatar = message.author.displayAvatarURL({ format: "png", dynamic: true });
 
         const deleteEmbed = new Discord.MessageEmbed()
             .setColor(globalVars.embedColor)
             .setAuthor(`Message deleted ❌`, avatar)
-            .setDescription(`Message sent by ${message.author} deleted from ${message.channel}.`);
+            .setDescription(`Message sent by ${message.author} (${message.author.id}) deleted from ${message.channel}.`);
         if (message.content.length > 0) deleteEmbed.addField(`Content:`, message.content, false);
         deleteEmbed
-            .setTimestamp();
+            .setFooter(message.author.tag)
+            .setTimestamp(message.createdTimestamp);
 
         globalVars.totalLogs += 1;
         return log.send(deleteEmbed);
@@ -32,5 +32,3 @@ module.exports = async (client, message) => {
         logger(e, client, message);
     };
 };
-
-

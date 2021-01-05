@@ -1,7 +1,8 @@
 module.exports = async (client) => {
     const cron = require("cron");
     const timezone = 'cest';
-    const time = '00 00 20 * * *'; //Sec Min Hour 
+    const time = '00 00 20 * * *'; //Sec Min Hour
+    // const time = '* * * * *'; //Sec Min Hour testing
     const guildID = client.config.botServerID;
     const gifTags = ['pokemon', 'lelouch'];
     const Discord = require("discord.js");
@@ -26,13 +27,14 @@ module.exports = async (client) => {
 
         const randomGif = await getRandomGif();
         let randomPick = Math.floor((Math.random() * (candidates.length - 0.1)));
+        let candidateRandom = candidates[randomPick];
         let channel = guild.channels.cache.find(channel => channel.id === globalVars.eventChannelID);
 
         const gifEmbed = new Discord.MessageEmbed()
             .setColor(globalVars.embedColor)
-            .setDescription(`> Today's most stannable person is ${candidates[randomPick].tag}, everyone!`)
+            .setDescription(`> Today's most stannable person is ${candidateRandom.tag}, everyone!`)
             .setImage(randomGif)
             .setTimestamp();
-        channel.send(gifEmbed);
+        channel.send(candidateRandom, { embed: gifEmbed });
     }, timeZone = timezone, start = true)
 };

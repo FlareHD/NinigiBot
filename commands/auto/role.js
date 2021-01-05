@@ -10,15 +10,9 @@ module.exports.run = async (client, message, args) => {
     let member = message.member;
     let arguments = args;
 
-    if (message.mentions.members.first()) {
-      if (!message.member.hasPermission("MANAGE_ROLES")) return message.reply(globalVars.lackPerms);
-      member = message.mentions.members.first();
-      arguments.pop();
-    };
-
     const requestRole = arguments.join(' ');
 
-    if (requestRole.length < 1) return message.channel.send(`> Please provide a role, use \`${globalVars.prefix}role help\` to see the available roles, ${message.author}.`);
+    if (requestRole.length < 1) return message.channel.send(`> Please provide a role. Use \`${globalVars.prefix}role help\` to see the available roles, ${message.author}.`);
 
     const db = await EligibleRoles.findAll();
     const roles = db.map(role => role.role_id);
@@ -26,11 +20,11 @@ module.exports.run = async (client, message, args) => {
     if (roles.length < 1) return message.channel.send(`> There are no eligible roles to assign to yourself in this server, ${message.author}.`);
 
     if (requestRole.toLowerCase() === 'help') {
-      let roleText = []
+      let roleText = [];
       member.guild.roles.cache.each(role => {
         if (roles.includes(role.id)) {
-          roleText.push(role)
-        }
+          roleText.push(role);
+        };
       });
 
       // Role sorting for role help
@@ -43,28 +37,28 @@ module.exports.run = async (client, message, args) => {
       for (let i = 0; i < roleText.length; i++) {
         roleHelpMessage = `${roleHelpMessage}
 > <@&${roleText[i]}>`;
-      }
+      };
 
       roleHelpMessage = `${roleHelpMessage}
 Please don't tag these roles, just put the name.
 Example: \`${globalVars.prefix}role rolename\``;
 
-      let avatar = null;
-      if (client.user.avatarURL()) avatar = client.user.avatarURL({ format: "png" });
+      let avatar = client.user.displayAvatarURL({ format: "png", dynamic: true });
 
       const rolesHelp = new Discord.MessageEmbed()
         .setColor(globalVars.embedColor)
         .setAuthor(`Available roles:`, avatar)
         .setDescription(roleHelpMessage)
-        .setFooter(`Requested by ${message.author.tag}`)
+        .setFooter(message.author.tag)
         .setTimestamp();
-      return message.channel.send(rolesHelp)
+      return message.channel.send(rolesHelp);
     };
 
     const role = message.member.guild.roles.cache.find(role => role.name.toLowerCase() === requestRole.toLowerCase());
 
-    if (!role) return message.channel.send(`> That role does not exist, ${message.author}.`);
-    if (!roles.includes(role.id)) return message.channel.send(`> Invalid role, use \`${globalVars.prefix}role help\` to see the available roles, ${message.author}.`);
+    let invalidRoleText = `> That role does not exist or isn't selfassignable, ${message.author}. Use \`${globalVars.prefix}role help\` to see the available roles.`
+    if (!role) return message.channel.send(invalidRoleText);
+    if (!roles.includes(role.id)) return message.channel.send(invalidRoleText);
     if (role.managed == true) return message.channel.send(`> I can't manage the **${role.name}** role because it is being automatically managed by an integration, ${message.author}.`);
     if (message.guild.me.roles.highest.comparePositionTo(role) <= 0) return message.channel.send(`> I can't manage the **${role.name}** role because it is above my highest role, ${message.author}.`);
 
@@ -87,5 +81,5 @@ Example: \`${globalVars.prefix}role rolename\``;
 
 module.exports.config = {
   name: "role",
-  aliases: []
+  aliases: ["roles", "rank"]
 };

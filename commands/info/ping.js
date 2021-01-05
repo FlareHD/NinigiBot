@@ -1,8 +1,22 @@
-exports.run = (client, message) => {
+exports.run = async (client, message) => {
+    // Import globals
+    let globalVars = require('../../events/ready');
     try {
-        let PongString = `> Pong!'ed back at ${message.author} in`;
+        let pongString = `> Pong!'ed back at ${message.author} in`;
+        let pauseString = `${pongString} (hold on, processing latency...)`;
 
-        return message.channel.send(`${PongString} (hold on, processing latency...)`).then(m => m.edit(`${PongString} ${m.createdTimestamp - message.createdTimestamp}ms.`));
+        // Replace string based on input. For some reason .replaceAll() doesn't work here. Whatever.
+        if (message.content.toLowerCase().startsWith(`${globalVars.prefix}pig`) || message.content.startsWith(`${globalVars.prefix}pog`)) {
+            pongString = pongString.split("n").join("");
+            pauseString = pauseString.split("n").join("");
+        };
+        if (message.content[2] == "o") {
+            pongString = pongString.split("o").join("i");
+            pauseString = pauseString.split("o").join("i");
+        };
+
+        // Send message then edit message to reflect difference in creation timestamps
+        return message.channel.send(pauseString).then(m => m.edit(`${pongString} ${m.createdTimestamp - message.createdTimestamp}ms.`));
 
     } catch (e) {
         // log error
@@ -16,5 +30,5 @@ module.exports.config = {
     name: "ping",
     description: "Pings bot",
     category: "info",
-    aliases: ["pong"]
+    aliases: ["pong", "pig", "pog"]
 };

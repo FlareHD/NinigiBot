@@ -2,12 +2,11 @@ module.exports.run = async (client, message) => {
     // Import globals
     let globalVars = require('../../events/ready');
     try {
-        if (!message.member.hasPermission("MANAGE_CHANNELS")) return message.reply(globalVars.lackPerms);
+        if (!message.member.hasPermission("MANAGE_CHANNELS") && message.author.id !== client.config.ownerID) return message.reply(globalVars.lackPerms);
 
         const { DisabledChannels } = require('../../database/dbObjects');
 
         const args = message.content.split(' ');
-
         if (!args[1]) return message.channel.send(`> Please provide a channel to toggle, ${message.author}.`);
 
         let channelID = await DisabledChannels.findOne({ where: { name: args[1] } });
@@ -36,5 +35,5 @@ module.exports.run = async (client, message) => {
 
 module.exports.config = {
     name: "togglechannel",
-    aliases: []
+    aliases: ["tc"]
 };

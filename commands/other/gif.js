@@ -43,15 +43,14 @@ ${helpText}`);
         };
       };
 
-      let avatar = null;
-      if (message.author.avatarURL()) avatar = message.author.avatarURL({ format: "png", dynamic: true });
+      let avatar = message.author.displayAvatarURL({ format: "png", dynamic: true });
 
       const gifEmbed = new Discord.MessageEmbed()
         .setColor(globalVars.embedColor)
         .setAuthor(`${gifArgumentCapitalized} Gif`, avatar)
         .setDescription(gifString)
         .setImage(gif)
-        .setFooter(`Requested by ${message.author.tag}`)
+        .setFooter(message.author.tag)
         .setTimestamp();
 
       return message.channel.send(gifEmbed);

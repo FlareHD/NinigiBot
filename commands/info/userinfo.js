@@ -8,7 +8,6 @@ module.exports.run = async (client, message) => {
         const { bank } = require('../../database/bank');
         const { Users } = require('../../database/dbObjects');
 
-
         let memberFetch = await message.guild.members.fetch();
         let user = message.mentions.users.first();
         let member = message.mentions.members.first();
@@ -27,19 +26,17 @@ module.exports.run = async (client, message) => {
             member = message.member;
         };
 
-        let userCache = client.users.cache.get(user.id);
         let memberCache = memberFetch.get(user.id);
-        if (!memberCache) return;
-        let memberRoles = memberCache.roles.cache.filter(element => element.name !== "@everyone");
+        if (!memberCache) return message.channel.send(`> No member information could be found for this user, ${message.author}.`);
 
-        //balance check
-        let userBalance = `${Math.floor(bank.currency.getBalance(userCache.id))}${globalVars.currency}`;
-        let switchCode = bank.currency.getSwitchCode(userCache.id);
-        let biography = bank.currency.getBiography(userCache.id);
-        let birthday = bank.currency.getBirthday(userCache.id);
+        // Balance check
+        let userBalance = `${Math.floor(bank.currency.getBalance(user.id))}${globalVars.currency}`;
+        let switchCode = bank.currency.getSwitchCode(user.id);
+        let biography = bank.currency.getBiography(user.id);
+        let birthday = bank.currency.getBirthday(user.id);
         let birthdayParsed = require('../../util/parseDate')(birthday);
 
-        // inventory check
+        // Inventory check
         const target = message.mentions.users.first() || message.author;
         const userDB = await Users.findOne({ where: { user_id: target.id } });
         let itemField = 'None';
@@ -48,6 +45,8 @@ module.exports.run = async (client, message) => {
             itemField = items.map(t => `${t.amount} ${t.item.name}`).join(', ');
         };
 
+        // Roles
+        let memberRoles = memberCache.roles.cache.filter(element => element.name !== "@everyone");
         let rolesSorted = "None";
         if (memberRoles.size !== 0) {
             rolesSorted = memberRoles.sort((r, r2) => r2.position - r.position).array().join(", ");
@@ -62,7 +61,7 @@ module.exports.run = async (client, message) => {
 
         // Clear up status wording
         let userStatus = "Error?";
-        switch (userCache.presence.status) {
+        switch (user.presence.status) {
             case "online":
                 userStatus = "Online";
                 break;
@@ -89,8 +88,8 @@ module.exports.run = async (client, message) => {
         const activities = memberCache.presence.activities;
         for (const act in activities) {
             if (activities[act].name === 'Custom Status') {
-                let emoji = null
-                if (activities[act].emoji) emoji = client.emojis.cache.get(activities[act].emoji.id)
+                let emoji = null;
+                if (activities[act].emoji) emoji = client.emojis.cache.get(activities[act].emoji.id);
                 if (emoji) customStatus = emoji.toString() + ' ';
                 // Sometimes regular null catch seems to work, sometimes it needs "null". I'm not sure what the fuck is happening. I hate Javascript.
                 if (activities[act].state && activities[act].state !== "null") customStatus += activities[act].state;
@@ -111,27 +110,37 @@ module.exports.run = async (client, message) => {
             };
         };
 
-        let avatar = null;
-        if (userCache.avatarURL()) avatar = userCache.avatarURL({ format: "png", dynamic: true });
+        // Avatar
+        let avatar = user.displayAvatarURL({ format: "png", dynamic: true });
+
+        // Nitro Boost check
+        let nitroEmote = "<:nitroboost:753268592081895605>";
+        let userText = user;
+        if (memberCache.premiumSince > 0) userText = `${user} ${nitroEmote}`;
 
         const profileEmbed = new Discord.MessageEmbed()
             .setColor(globalVars.embedColor)
-            .setAuthor(userCache.username, avatar)
+            .setAuthor(`${user.tag} (${user.id})`, avatar)
             .setThumbnail(avatar)
-            .addField("Account:", user, true)
+            .addField("Account:", userText, true)
             .addField("Availability:", userStatus, true);
         if (!user.bot) profileEmbed.addField("Balance:", userBalance, true);
         if (customStatus.length >= 1 && customStatus !== 'null') profileEmbed.addField("Custom Status:", customStatus, true);
         if (birthday && birthdayParsed) profileEmbed.addField("Birthday:", birthdayParsed, true);
         if (actBool == true) profileEmbed.addField("Activities:", activityLog, false);
-        if (switchCode && switchCode !== 'None') profileEmbed.addField("Switch friend code:", switchCode, true);
-        if (biography && biography !== 'None') profileEmbed.addField("Biography:", biography, false);
+        if (switchCode && switchCode !== 'None') profileEmbed.addField("Switch FC:", switchCode, true);
+        if (biography && biography !== 'None') profileEmbed.addField("Biography:", biography, true);
         if (itemField && itemField != 'None') profileEmbed.addField("Inventory:", itemField, false);
         profileEmbed
             .addField("Roles:", rolesSorted, false)
-            .addField("Joined at:", `${memberCache.joinedAt.toUTCString().substr(0, 16)}, ${checkDays(memberCache.joinedAt)}.`, false)
-            .addField("Created at:", `${userCache.createdAt.toUTCString().substr(0, 16)}, ${checkDays(userCache.createdAt)}.`, false)
-            .setFooter(`Requested by ${message.author.tag}`)
+            .addField("Joined at:", `${memberCache.joinedAt.toUTCString().substr(5,)}
+${checkDays(memberCache.joinedAt)}`, true);
+        if (memberCache.premiumSince > 0) profileEmbed.addField(`Boosting since:`, `${memberCache.premiumSince.toUTCString().substr(5,)}
+${checkDays(memberCache.premiumSince)}`, true);
+        profileEmbed
+            .addField("Created at:", `${user.createdAt.toUTCString().substr(5,)}
+${checkDays(user.createdAt)}`, true)
+            .setFooter(message.author.tag)
             .setTimestamp();
 
         return message.channel.send(profileEmbed);

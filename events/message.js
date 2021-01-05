@@ -14,54 +14,31 @@ module.exports = async (client, message) => {
 
     const autoMod = require('../util/autoMod');
 
-    // Ignore all bots
-    if (message.author.bot) return;
-
-    // Add currency if message doesn't start with prefix
-    if (message.content.indexOf(globalVars.prefix) !== 0 && !talkedRecently.has(message.author.id)) {
-      bank.currency.add(message.author.id, 1);
-      talkedRecently.add(message.author.id);
-      setTimeout(() => {
-        talkedRecently.delete(message.author.id);
-      }, 60000);
-    };
-
-    // Add message count
-    globalVars.totalMessages += 1;
-
     // Call image
     let messageImage = null;
     if (message.attachments.size > 0) messageImage = message.attachments.first().url;
 
     // Ignore commands in DMs
-    if (message.channel.type == "dm") {
+    if (message.channel.type == "dm" && message.author.id !== client.user.id) {
       if (message.content.indexOf(globalVars.prefix) == 0) {
-        message.author.send(`> Sorry ${message.author}, you're not allowed to use commands in private messages!`).catch(console.error);
+        message.author.send(`> Sorry ${message.author}, you're not allowed to use commands in private messages!`);
       };
-
       // Send message contents to dm channel
       let DMChannel = client.channels.cache.get(client.config.devChannelID);
-
-      let avatar = null;
-      if (message.author.avatarURL()) avatar = message.author.avatarURL({ format: "png", dynamic: true });
-
+      let avatar = message.author.displayAvatarURL({ format: "png", dynamic: true });
       const dmEmbed = new Discord.MessageEmbed()
         .setColor(globalVars.embedColor)
         .setAuthor(`DM Message`, avatar)
         .setThumbnail(avatar)
-        .addField(`Author Account:`, message.author, false)
+        .addField(`Author:`, message.author.tag, false)
         .addField(`Author ID:`, message.author.id, false);
       if (message.content) dmEmbed.addField(`Message content:`, message.content, false);
       dmEmbed
         .setImage(messageImage)
-        .setFooter(`DM passed through by ${client.user.tag}.`)
+        .setFooter(client.user.tag)
         .setTimestamp();
-
       return DMChannel.send(dmEmbed);
     };
-
-    // Automod
-    autoMod(message);
 
     // Starboard functionality
     message.awaitReactions(reaction => reaction.emoji.name == "⭐", { max: globalVars.starboardLimit, time: 3600000 }).then(collected => {
@@ -70,12 +47,8 @@ module.exports = async (client, message) => {
         if (!collected.first()) return;
         if (collected.first().count == globalVars.starboardLimit) {
           if (message.channel !== starboard) {
-
-            if (!starboard.permissionsFor(message.guild.me).has("EMBED_LINKS")) return message.channel.send(`> I don't have permissions to send embedded message to your starboard.`);
-
-            avatar = null;
-            if (message.author.avatarURL()) avatar = message.author.avatarURL({ format: "png", dynamic: true });
-
+            if (!starboard.permissionsFor(message.guild.me).has("EMBED_LINKS")) return message.channel.send(`> I don't have permissions to send embedded message to your starboard, ${message.author}.`);
+            let avatar = message.author.displayAvatarURL({ format: "png", dynamic: true });
             const starEmbed = new Discord.MessageEmbed()
               .setColor(globalVars.embedColor)
               .setAuthor(`⭐ ${message.author.username}`, avatar)
@@ -83,12 +56,33 @@ module.exports = async (client, message) => {
               .addField(`Sent in:`, message.channel, false)
               .addField(`Context:`, `[Link](${message.url})`, false)
               .setImage(messageImage)
-              .setTimestamp();
+              .setFooter(message.author.tag)
+              .setTimestamp(message.createdTimestamp);
             starboard.send(starEmbed);
           };
         };
       };
     });
+
+    // Ignore all bots
+    if (message.author.bot) return;
+
+    // Automod
+    autoMod(message);
+
+    // Add message count
+    globalVars.totalMessages += 1;
+
+    let memberRoles = message.member.roles.cache.filter(element => element.name !== "@everyone");
+
+    // Add currency if message doesn't start with prefix
+    if (message.content.indexOf(globalVars.prefix) !== 0 && !talkedRecently.has(message.author.id) && memberRoles.size !== 0) {
+      bank.currency.add(message.author.id, 1);
+      talkedRecently.add(message.author.id);
+      setTimeout(() => {
+        talkedRecently.delete(message.author.id);
+      }, 60000);
+    };
 
     // Ignore messages not starting with the prefix
     if (message.content.indexOf(globalVars.prefix) !== 0) return;

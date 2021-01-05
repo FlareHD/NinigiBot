@@ -2,8 +2,14 @@ module.exports.run = async (client, message) => {
     let globalVars = require('../../events/ready');
     try {
         const Discord = require("discord.js");
+        const fetch = require("node-fetch");
         var Pokedex = require('pokedex-promise-v2');
         var P = new Pokedex();
+        const correctionDisplay = require('../../objects/pokemon/correctionDisplay.json');
+        const correctionID = require('../../objects/pokemon/correctionID.json');
+        const correctionName = require('../../objects/pokemon/correctionName.json');
+        const easterEggName = require('../../objects/pokemon/easterEggName.json');
+        const typeMatchups = require('../../objects/pokemon/typeMatchups.json');
 
         if (!message.channel.permissionsFor(message.guild.me).has("EMBED_LINKS")) return message.channel.send(`> I don't have permissions to embed messages, ${message.author}.`);
 
@@ -26,7 +32,7 @@ module.exports.run = async (client, message) => {
                             .setColor(globalVars.embedColor)
                             .setAuthor(capitalizeString(response.name))
                             .addField("Description:", englishEntry.short_effect, false)
-                            .setFooter(`Requested by ${message.author.tag}`)
+                            .setFooter(message.author.tag)
                             .setTimestamp();
 
                         return message.channel.send(abilityEmbed);
@@ -44,9 +50,9 @@ module.exports.run = async (client, message) => {
                             .setColor(globalVars.embedColor)
                             .setAuthor(capitalizeString(response.name))
                             .setThumbnail(response.sprites.default)
-                            .addField("Category:", capitalizeString(response.category.name), false)
+                            .addField("Category:", capitalizeString(response.category.name), true)
                             .addField("Description:", response.effect_entries[0].short_effect, false)
-                            .setFooter(`Requested by ${message.author.tag}`)
+                            .setFooter(message.author.tag)
                             .setTimestamp();
 
                         return message.channel.send(itemEmbed);
@@ -60,18 +66,20 @@ module.exports.run = async (client, message) => {
             case "move":
                 P.getMoveByName(subArgument)
                     .then(function (response) {
+                        let description = response.effect_entries[0].short_effect.replace("$effect_chance", response.effect_chance);
+
                         const moveEmbed = new Discord.MessageEmbed()
                             .setColor(globalVars.embedColor)
                             .setAuthor(capitalizeString(response.name))
-                            .addField("Type:", getTypeEmotes(response.type.name), false)
+                            .addField("Type:", getTypeEmotes(response.type.name), true)
                             .addField("Category:", capitalizeString(response.damage_class.name), true);
                         if (response.power) moveEmbed.addField("Power:", response.power, true);
-                        if (response.accuracy) moveEmbed.addField("Accuracy:", response.accuracy, true);
+                        if (response.accuracy) moveEmbed.addField("Accuracy:", `${response.accuracy}%`, true);
                         if (response.priority !== 0) moveEmbed.addField("Priority:", response.priority, true);
                         moveEmbed
-                            .addField("Target:", capitalizeString(response.target.name), false)
-                            .addField("Description:", response.effect_entries[0].effect, false)
-                            .setFooter(`Requested by ${message.author.tag}`)
+                            .addField("Target:", capitalizeString(response.target.name), true)
+                            .addField("Description:", description, false)
+                            .setFooter(message.author.tag)
                             .setTimestamp();
 
                         return message.channel.send(moveEmbed);
@@ -83,33 +91,31 @@ module.exports.run = async (client, message) => {
                 break;
 
             default:
-                let pokemonName = subCommand;
-                if (pokemonName == "tapu" && args[2]) pokemonName = `${args[1]}-${args[2]}`;
-                if (pokemonName == "type:" && args[2]) pokemonName = `${args[1].substring(0, args[1].length - 1)}-${args[2]}`;
-                // edgecase name corrections
-                if (pokemonName == "farfetch'd") pokemonName = "farfetchd";
-                if (pokemonName == "deoxys") pokemonName = "deoxys-normal";
-                if (pokemonName == "giratina") pokemonName = "giratina-altered";
-                if (pokemonName == "tornadus") pokemonName = "tornadus-incarnate";
-                if (pokemonName == "thundurus") pokemonName = "thundurus-incarnate";
-                if (pokemonName == "landorus") pokemonName = "landorus-incarnate";
-                if (pokemonName == "keldeo") pokemonName = "keldeo-ordinary";
-                if (pokemonName == "zygarde-50") pokemonName = "zygarde";
-                if (pokemonName == "rockruff-dusk") pokemonName = "rockruff-own-tempo";
-                if (pokemonName == "lycanroc") pokemonName = "lycanroc-midday";
-                if (pokemonName == "mimikyu") pokemonName = "mimikyu-disguised";
-                if (pokemonName == "necrozma-dawn-wings") pokemonName = "necrozma-dawn";
-                if (pokemonName == "necrozma-dusk-mane") pokemonName = "necrozma-dusk";
-                // "joke" name aliases
-                if (pokemonName == "smogonbird") pokemonName = "talonflame";
-                if (pokemonName == "glaze") pokemonName = "shinx";
-                if (pokemonName == "joris") pokemonName = "charjabug";
-                if (pokemonName == "zora") pokemonName = "turtwig";
+                // Public variables
+                var pokemonName = subCommand;
+                var pokemonID;
+
+                args.forEach(arg => {
+                    if (arg !== args[0] && arg !== args[1]) {
+                        pokemonName = `${pokemonName} ${arg}`;
+                    };
+                });
+
+                // Edgecase name corrections
+                if (pokemonName.startsWith("tapu") || pokemonName == "type null") pokemonName = `${args[1]}-${args[2]}`;
+                if (pokemonName == "type: null") pokemonName = `${args[1].substring(0, args[1].length - 1)}-${args[2]}`;
+                correctValue(correctionName, pokemonName);
+
+                // Easter egg name aliases
+                correctValue(easterEggName, pokemonName);
 
                 P.getPokemonByName(pokemonName)
                     .then(async function (response) {
                         // Log for testing, remove later
-                        console.log(response);
+                        // console.log(response);
+
+                        // Correct name when searching by ID
+                        pokemonName = response.name;
 
                         // Typing
                         let typeString = "";
@@ -121,34 +127,12 @@ module.exports.run = async (client, message) => {
                             typeString = getTypeEmotes(type1);
                         };
 
-                        // Typing matchups
-                        let types = {
-                            "normal": { se: [], res: ["rock", "steel"], immune: ["ghost"], effect: 0 },
-                            "fighting": { se: ["normal", "rock", "steel", "ice", "dark"], res: ["flying", "poison", "bug", "psychic", "fairy"], immune: ["ghost"], effect: 0 },
-                            "flying": { se: ["fighting", "bug", "grass"], res: ["rock", "steel", "electric"], immune: [], effect: 0 },
-                            "poison": { se: ["grass", "fairy"], res: ["poison", "ground", "rock", "ghost"], immune: ["steel"], effect: 0 },
-                            "ground": { se: ["poison", "rock", "steel", "fire", "electric"], res: ["bug", "grass"], immune: ["flying"], effect: 0 },
-                            "rock": { se: ["flying", "bug", "fire", "ice"], res: ["fighting", "ground", "steel"], immune: [], effect: 0 },
-                            "bug": { se: ["grass", "psychic", "dark"], res: ["fighting", "flying", "poison", "ghost", "steel", "fire", "fairy"], immune: [], effect: 0 },
-                            "ghost": { se: ["ghost", "psychic"], res: ["dark"], immune: ["normal"], effect: 0 },
-                            "steel": { se: ["rock", "ice", "fairy"], res: ["steel", "fire", "water", "electric"], immune: [], effect: 0 },
-                            "fire": { se: ["bug", "steel", "grass", "ice"], res: ["rock", "fire", "water", "dragon"], immune: [], effect: 0 },
-                            "water": { se: ["ground", "rock", "fire"], res: ["water", "grass", "dragon"], immune: [], effect: 0 },
-                            "grass": { se: ["ground", "rock", "water"], res: ["flying", "poison", "bug", "steel", "fire", "grass", "dragon"], immune: [], effect: 0 },
-                            "electric": { se: ["flying", "water"], res: ["grass", "electric", "dragon"], immune: ["ground"], effect: 0 },
-                            "psychic": { se: ["fighting", "poison"], res: ["steel", "psychic"], immune: ["dark"], effect: 0 },
-                            "ice": { se: ["flying", "ground", "grass", "dragon"], res: ["steel", "fire", "water", "ice"], immune: [], effect: 0 },
-                            "dragon": { se: ["dragon"], res: ["steel"], immune: ["fairy"], effect: 0 },
-                            "dark": { se: ["ghost", "psychic"], res: ["fighting", "dark", "fairy"], immune: [], effect: 0 },
-                            "fairy": { se: ["fighting", "dragon", "dark"], res: ["poison", "steel", "fire"], immune: [], effect: 0 }
-                        };
-
+                        // Check type matchups
                         let superEffectives = "";
                         let resistances = "";
                         let immunities = "";
 
-                        // Check type matchups
-                        for (let [key, type] of Object.entries(types)) {
+                        for (let [key, type] of Object.entries(typeMatchups)) {
                             let typeName = key;
 
                             // Dual type Pokemon
@@ -184,6 +168,7 @@ module.exports.run = async (client, message) => {
                                         immunities = `${immunities}, ${typeName}`;
                                     };
                                 };
+                                type.effect = 0;
 
                                 // Single type Pokemon
                             } else {
@@ -215,72 +200,40 @@ module.exports.run = async (client, message) => {
                         let weight = `${response.weight / 10}kg`;
                         let height = `${response.height / 10}m`;
 
-                        var pokemonID = leadingZeros(response.id.toString());
-                        // edgecase ID corrections, should be put in a JSON sometime. Delta is a nerd.
-                        if (pokemonName == "charizard-mega-x") pokemonID = "006-mx";
-                        if (pokemonName == "charizard-mega-y") pokemonID = "006-my";
-                        if (pokemonName == "mewtwo-mega-x") pokemonID = "150-mx";
-                        if (pokemonName == "mewtwo-mega-y") pokemonID = "150-my";
-                        if (pokemonName == "castform-sunny") pokemonID = "351-s";
-                        if (pokemonName == "castform-rainy") pokemonID = "351-r";
-                        if (pokemonName == "castform-snowy") pokemonID = "351-i";
-                        if (pokemonName == "deoxys-attack") pokemonID = "386-a";
-                        if (pokemonName == "deoxys-defense") pokemonID = "386-d";
-                        if (pokemonName == "deoxys-speed") pokemonID = "386-s";
-                        if (pokemonName == "rotom-fan") pokemonID = "479-s";
-                        if (pokemonName == "rotom-frost") pokemonID = "479-f";
-                        if (pokemonName == "rotom-heat") pokemonID = "479-h";
-                        if (pokemonName == "rotom-mow") pokemonID = "479-m";
-                        if (pokemonName == "rotom-wash") pokemonID = "479-w";
-                        if (pokemonName == "giratina-origin") pokemonID = "487-o";
-                        if (pokemonName == "shaymin-sky") pokemonID = "492-s";
-                        if (pokemonName == "tornadus-therian") pokemonID = "641-s";
-                        if (pokemonName == "thundurus-therian") pokemonID = "642-s";
-                        if (pokemonName == "landorus-therian") pokemonID = "645-s";
-                        if (pokemonName == "kyurem-black") pokemonID = "646-b";
-                        if (pokemonName == "kyurem-white") pokemonID = "646-w";
-                        if (pokemonName == "keldeo-resolute") pokemonID = "647-r";
-                        if (pokemonName == "zygarde-10") pokemonID = "718-10";
-                        if (pokemonName == "zygarde-complete") pokemonID = "718-c";
-                        if (pokemonName == "hoopa-unbound") pokemonID = "720-u";
-                        if (pokemonName == "rockruff-own-tempo") pokemonID = "744";
-                        if (pokemonName == "lycanroc-midnight") pokemonID = "745-m";
-                        if (pokemonName == "lycanroc-dusk") pokemonID = "745-d";
-                        if (pokemonName == "mimikyu-busted") pokemonID = "778";
-                        if (pokemonName == "necrozma-dawn") pokemonID = "800-dw";
-                        if (pokemonName == "necrozma-dusk") pokemonID = "800-dm";
-                        if (pokemonName == "necrozma-ultra") pokemonID = "800-m";
+                        pokemonID = leadingZeros(response.id.toString());
 
+                        // Forms
                         const alolaString = "-alola";
+                        const galarString = "-galar";
                         const megaString = "-mega";
                         const primalString = "-primal";
+                        const gmaxString = "-gmax";
                         const alolaBool = pokemonName.endsWith(alolaString);
+                        const galarBool = pokemonName.endsWith(galarString);
                         const megaBool = pokemonName.endsWith(megaString);
                         const primalBool = pokemonName.endsWith(primalString);
-                        let formLength;
+                        const gmaxBool = pokemonName.endsWith(gmaxString);
+                        let formChar;
 
-                        // Catch other forms
-                        if (alolaBool) {
-                            formLength = alolaString.length;
-                            let baseName = pokemonName.substring(0, pokemonName.length - formLength);
+                        if (alolaBool || galarBool || megaBool || primalBool || gmaxBool) {
+                            if (alolaBool) {
+                                formChar = "-a";
+                            };
+                            if (galarBool) {
+                                formChar = "-g";
+                            };
+                            if (megaBool || primalBool) {
+                                formChar = "-m";
+                            };
+                            if (gmaxBool) {
+                                formChar = "-gi";
+                                weight = "???kg";
+                            };
+                            let baseName = pokemonName.replace("-alola", "").replace("-galar", "").replace("-mega", "").replace("-primal", "").replace("-gmax", "");
                             await P.getPokemonByName(baseName)
-                                .then(function (responseAlola) {
-                                    let AlolaID = leadingZeros(responseAlola.id.toString());
-                                    pokemonID = `${AlolaID}-a`;
-                                })
-                                .catch(function (error) {
-                                    console.log(error);
-                                    return message.channel.send(`> Could not find the specified Pokémon, ${message.author}.`);
-                                });
-                        };
-                        if (megaBool || primalBool) {
-                            if (megaBool) formLength = megaString.length;
-                            if (primalBool) formLength = primalString.length;
-                            let baseName = pokemonName.substring(0, pokemonName.length - formLength);
-                            await P.getPokemonByName(baseName)
-                                .then(function (responseMega) {
-                                    let MegaID = leadingZeros(responseMega.id.toString());
-                                    pokemonID = `${MegaID}-m`;
+                                .then(function (responseForm) {
+                                    let formID = leadingZeros(responseForm.id.toString());
+                                    pokemonID = `${formID}${formChar}`;
                                 })
                                 .catch(function (error) {
                                     console.log(error);
@@ -288,15 +241,23 @@ module.exports.run = async (client, message) => {
                                 });
                         };
 
+                        // edgecase ID corrections, should be put in a JSON sometime. Delta is a nerd.
+                        correctValue(correctionID, pokemonID);
+
+                        // ID and get Species Info, currently unused
+                        // let numericID = pokemonID.replace(/\D/g, '');
+                        // let speciesInfo = await (await fetch(`https://pokeapi.co/api/v2/pokemon-species/${numericID}/`)).json();
+
+                        // Official art
                         let banner = `https://www.serebii.net/pokemon/art/${pokemonID}.png`;
+
                         // Shuffle icons, only works for pokemon in pokemon shuffle
                         let icon = `https://www.pkparaiso.com/imagenes/shuffle/sprites/${pokemonID}.png`;
                         // Lower res party sprites from smogon, but work for all pokemon (but different naming convention, fuck smogon)
                         //let icon = `https://www.smogon.com/forums//media/minisprites/${pokemonName}.png`;
-                        // High rest gen 8 sprite but only works for pokemon in swsh
+
+                        // High res SwSh sprites
                         let sprite = `https://www.serebii.net/Shiny/SWSH/${pokemonID}.png`;
-                        // Lower Res sprite but works for all pokemon (but different naming convention, fuck smogon)
-                        //let sprite = `https://play.pokemonshowdown.com/sprites/ani-shiny/${pokemonName}.gif`;
 
                         let abilityString = ``;
                         if (response.abilities[0]) {
@@ -317,7 +278,7 @@ module.exports.run = async (client, message) => {
                             };
                         };
 
-                        // Stat ranges
+                        let statLevels = `(50) (100)`;
                         let baseHP = response.stats[0].base_stat;
                         let baseAtk = response.stats[1].base_stat;
                         let baseDef = response.stats[2].base_stat;
@@ -333,9 +294,8 @@ module.exports.run = async (client, message) => {
                         let SpDstats = calcStat(baseSpD);
                         let Spestats = calcStat(baseSpe);
 
-                        // Simplify pokemonNames 
-                        if (pokemonName == "mimikyu-disguised") pokemonName = "mimikyu";
-                        if (pokemonName == "mimikyu-busted") pokemonName = "mimikyu";
+                        // Alter display Pokémon names
+                        correctValue(correctionDisplay, pokemonName);
 
                         pokemonName = capitalizeString(pokemonName);
                         let abilityStringCapitalized = capitalizeAbilities(abilityString);
@@ -353,7 +313,7 @@ Height: ${height}`, true);
                         if (resistances.length > 0) pkmEmbed.addField("Resistances:", resistances, false);
                         if (immunities.length > 0) pkmEmbed.addField("Immunities:", immunities, false);
                         pkmEmbed
-                            .addField("Stats: (50) (100)", `HP: **${baseHP}** ${HPstats}
+                            .addField(`Stats: ${statLevels}`, `HP: **${baseHP}** ${HPstats}
 Atk: **${baseAtk}** ${Atkstats}
 Def: **${baseDef}** ${Defstats}
 SpA: **${baseSpA}** ${SpAstats}
@@ -361,10 +321,10 @@ SpD: **${baseSpD}** ${SpDstats}
 Spe: **${baseSpe}** ${Spestats}
 BST: ${BST}`, false)
                             .setImage(banner)
-                            .setFooter(`Requested by ${message.author.tag}`)
+                            .setFooter(message.author.tag)
                             .setTimestamp();
 
-                        return message.channel.send(pkmEmbed)
+                        return message.channel.send(pkmEmbed);
 
                     }).catch(function (error) {
                         console.log(error);
@@ -383,19 +343,20 @@ BST: ${BST}`, false)
                 let type2Emote = typeEmoteList[type2];
                 let type2Name = capitalizeString(type2);
                 if (bold == true) type2Name = `**${type2Name}**`;
-                typeString = `${typeString} / ${type2Emote} ${type2Name}`;
+                typeString = `${typeString}
+${type2Emote} ${type2Name}`;
             };
             return typeString;
         };
 
-        function capitalizeAbilities(str) {
-            let abilitySplit = str.split('\n');
-            let newArray = [];
-            for (var i = 0; i < abilitySplit.length; i++) {
-                newArray.push(capitalizeString(abilitySplit[i]));
-            };
-            capitalizedAbilities = newArray.join('\n');
-            return capitalizedAbilities;
+        async function correctValue(object, input) {
+            var uncorrectedNames = Object.keys(object);
+            uncorrectedNames.forEach(function (key) {
+                if (pokemonName == key) {
+                    if (input == pokemonName) pokemonName = object[key];
+                    if (input == pokemonID) pokemonID = object[key];
+                };
+            });
         };
 
         function calcHP(base) {
@@ -403,8 +364,9 @@ BST: ${BST}`, false)
             let max50 = Math.floor((((2 * base + 31 + (252 / 4)) * 50) / 100) + 50 + 10);
             let min100 = Math.floor((((2 * base) * 100) / 100) + 100 + 10);
             let max100 = Math.floor((((2 * base + 31 + (252 / 4)) * 100) / 100) + 100 + 10);
-
             let StatText = `(${min50}-${max50}) (${min100}-${max100})`;
+            if (pokemonName.endsWith("-gmax")) StatText = `(${min50 * 2}-${max50 * 2}) (${min100 * 2}-${max100 * 2})`;
+            if (pokemonName == "shedinja") StatText = `(1-1) (1-1)`;
             return StatText;
         };
 
@@ -413,7 +375,6 @@ BST: ${BST}`, false)
             let max50 = Math.floor(((((2 * base + 31 + (252 / 4)) * 50) / 100) + 5) * 1.1);
             let min100 = Math.floor(((((2 * base) * 100) / 100) + 5) * 0.9);
             let max100 = Math.floor(((((2 * base + 31 + (252 / 4)) * 100) / 100) + 5) * 1.1);
-
             let StatText = `(${min50}-${max50}) (${min100}-${max100})`;
             return StatText;
         };
@@ -431,11 +392,25 @@ BST: ${BST}`, false)
             return returnStr;
         };
 
+        function capitalizeAbilities(str) {
+            let abilitySplit = str.split('\n');
+            let newArray = [];
+            for (var i = 0; i < abilitySplit.length; i++) {
+                newArray.push(capitalizeString(abilitySplit[i]));
+            };
+            capitalizedAbilities = newArray.join('\n');
+            return capitalizedAbilities;
+        };
+
         function leadingZeros(str) {
             for (var i = str.length; i < 3; i++) {
                 str = "0" + str;
             };
             return str;
+        };
+
+        function getKeyByValue(object, value) {
+            return Object.keys(object).find(key => object[key] === value);
         };
 
     } catch (e) {

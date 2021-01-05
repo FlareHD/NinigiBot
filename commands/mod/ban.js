@@ -2,18 +2,19 @@ module.exports.run = async (client, message) => {
     // Import globals
     let globalVars = require('../../events/ready');
     try {
-        if (!message.member.hasPermission("BAN_MEMBERS")) return message.reply(globalVars.lackPerms);
-        if (!message.channel.permissionsFor(message.guild.me).has("BAN_MEMBERS")) return message.channel.send(`> I lack the required permissions to ban members, ${message.author}.`);
+        if (!message.member.hasPermission("BAN_MEMBERS") && message.author.id !== client.config.ownerID) return message.reply(globalVars.lackPerms);
+        if (!message.guild.me.hasPermission("BAN_MEMBERS")) return message.channel.send(`> I lack the required permissions to ban members, ${message.author}.`);
 
         const args = message.content.split(' ');
 
         const member = message.mentions.members.first();
         let user = message.mentions.users.first();
         if (!member || !user) return message.channel.send(`> Please mention someone to ban, ${message.author}.`);
+        if (!member.bannable) return message.channel.send(`> I lack the required permission to ban ${user.tag}, ${message.author}.`);
 
-        let userTag = user.tag;
-
-        if (!member.bannable) return message.channel.send(`> I lack the required permission to ban the specified member, ${message.author}.`);
+        let userRole = message.member.roles.highest;
+        let targetRole = member.roles.highest;
+        if (targetRole.position >= userRole.position || member.hasPermission("ADMINISTRATOR")) return message.channel.send(`> You don't have a high enough role to ban ${user.tag}, ${message.author}.`);
 
         let reason = "Not specified.";
         if (args[2]) {
@@ -21,13 +22,9 @@ module.exports.run = async (client, message) => {
             reason = reason.join(' ');
         };
 
+        await user.send(`> You've been banned from **${message.guild.name}** for the following reason: \`${reason}\``);
         await member.ban({ days: 0, reason: `${reason} -${message.author.tag}` });
-        await message.channel.send(`> Successfully banned ${userTag} for the following reason: \`${reason}\`, ${message.author}.`);
-        try {
-            return user.send(`> You've been banned from ${message.guild.name} for the following reason: \`${reason}\``);
-        } catch (e) {
-            return;
-        };
+        return message.channel.send(`> Successfully banned ${user.tag} for the following reason: \`${reason}\`, ${message.author}.`);
 
     } catch (e) {
         // log error

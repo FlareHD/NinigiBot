@@ -2,16 +2,14 @@ exports.run = (client, message) => {
     // Import globals
     let globalVars = require('../../events/ready');
     try {
-        if (message.author.id !== client.config.ownerID) {
-            return message.reply(globalVars.lackPerms)
-        };
+        if (message.author.id !== client.config.ownerID) return message.reply(globalVars.lackPerms);
 
         args = message.content.split(' ');
         let guildID = args[1];
         let guild = client.guilds.cache.get(guildID);
         if (!guild) guild = message.guild;
 
-        let baseMessage = `> Here's a list of all channels for ${guild.name}, ${message.author}:`;
+        let baseMessage = `> Here's a list of all channels for **${guild.name}**, ${message.author}:`;
 
         guild.channels.cache.forEach((channel) => {
             baseMessage = `${baseMessage}

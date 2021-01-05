@@ -2,7 +2,7 @@ exports.run = (client, message, args) => {
     // Import globals
     let globalVars = require('../../events/ready');
     try {
-        if (!message.member.hasPermission("MANAGE_MESSAGES")) return message.reply(globalVars.lackPerms);
+        if (!message.member.hasPermission("MANAGE_MESSAGES") && message.author.id !== client.config.ownerID) return message.reply(globalVars.lackPerms);
         if (!message.channel.permissionsFor(message.guild.me).has("MANAGE_MESSAGES")) return message.channel.send(`> I lack the required permissions to delete messages, ${message.author}.`);
 
         let numberFromMessage = args[0];
@@ -32,7 +32,6 @@ exports.run = (client, message, args) => {
             message.channel.messages.fetch({
                 limit: 100,
             }).then((messages) => {
-
                 const filterBy = user ? user.id : Client.user.id;
                 messages = messages.filter(m => m.author.id === filterBy).array().slice(0, amount);
 
@@ -57,5 +56,5 @@ exports.run = (client, message, args) => {
 
 module.exports.config = {
     name: "purge",
-    aliases: []
+    aliases: ["clear"]
 };

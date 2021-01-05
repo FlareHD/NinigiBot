@@ -2,9 +2,7 @@ module.exports.run = async (client, message) => {
     // Import globals
     let globalVars = require('../../events/ready');
     try {
-        if (message.author.id !== client.config.ownerID) {
-            return message.reply(globalVars.lackPerms)
-        };
+        if (message.author.id !== client.config.ownerID) return message.reply(globalVars.lackPerms);
 
         const { bank } = require('../../database/bank');
         const input = message.content.slice(1).trim();
@@ -18,14 +16,11 @@ module.exports.run = async (client, message) => {
 
         if (!transferTarget) {
             const input = message.content.split(` `, 3);
-            let userID = input[1];
+            let userID = input[2];
             transferTarget = client.users.cache.get(userID);
         };
 
-        if (!transferTarget) {
-            transferTarget = message.author;
-        };
-
+        if (!transferTarget) return message.channel.send(`> That's not a valid target, ${message.author}.`);
         if (!transferAmount || isNaN(transferAmount)) return message.channel.send(`> That's not a valid number, ${message.author}.`);
 
         bank.currency.add(transferTarget.id, +transferAmount).then(userBalance = `${Math.floor(bank.currency.getBalance(message.author.id))}${currency}`);

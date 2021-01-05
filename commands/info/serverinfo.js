@@ -6,7 +6,7 @@ module.exports.run = async (client, message) => {
 
         const Discord = require("discord.js");
 
-        args = message.content.split(' ');
+        let args = message.content.split(' ');
         let guildID = args[1];
         let guild = client.guilds.cache.get(guildID);
         if (!guild) guild = message.guild;
@@ -16,13 +16,6 @@ module.exports.run = async (client, message) => {
         let bots = memberFetch.filter(member => member.user.bot).size;
         let onlineMembers = memberFetch.filter(member => !member.user.bot && member.presence.status !== "offline").size;
         let nitroEmote = "<:nitroboost:753268592081895605>";
-
-        function checkDays(date) {
-            let now = new Date();
-            let diff = now.getTime() - date.getTime();
-            let days = Math.floor(diff / 86400000);
-            return days + (days == 1 ? " day" : " days") + " ago";
-        };
 
         let verifLevels = {
             "NONE": "None",
@@ -54,31 +47,55 @@ module.exports.run = async (client, message) => {
 
         let icon = null;
         if (guild.iconURL()) icon = guild.iconURL({ format: "png", dynamic: true });
+        let banner = null;
+        if (guild.bannerURL()) banner = guild.bannerURL({ format: "png" });
 
         let ownerTag = guild.owner.user.tag;
         if (guild == message.guild) ownerTag = guild.owner.user;
 
+        if (guild.rulesChannel) {
+            var rules = guild.rulesChannel;
+            if (guild !== message.guild) rules = `#${guild.rulesChannel.name}`;
+        };
+
+        var channelCount = 0;
+        guild.channels.cache.forEach(channel => {
+            if (channel.type == "voice" || channel.type == "text") channelCount += 1;
+        });
+
         const serverEmbed = new Discord.MessageEmbed()
             .setColor(globalVars.embedColor)
-            .setAuthor(guild.name, icon)
+            .setAuthor(`${guild.name} (${guild.id})`, icon)
             .setThumbnail(icon)
             .addField("Owner:", ownerTag, true)
             .addField("Region:", region[guild.region], true)
-            .addField("Verification Level:", verifLevels[guild.verificationLevel], true)
-            .addField("ID:", guild.id, true)
-            .addField("Members:", realMembers, true)
-            .addField("Online members:", onlineMembers, true)
-            .addField("Bots:", `${bots} 🤖`, true)
-            .addField("Channels:", guild.channels.cache.size, true)
-            .addField("Roles:", guild.roles.cache.size, true)
-            .addField("Emotes:", `${guild.emojis.cache.size} 😳`, true);
+            .addField("Verification Level:", verifLevels[guild.verificationLevel], true);
+        if (guild.vanityURLCode) serverEmbed.addField("Vanity Invite:", `discord.gg/${guild.vanityURLCode}`, true);
+        if (guild.rulesChannel) serverEmbed.addField("Rules:", rules, true);
+        serverEmbed
+            .addField("Real members:", realMembers, true)
+            .addField("Online members:", onlineMembers, true);
+        if (bots > 0) serverEmbed.addField("Bots:", `${bots} 🤖`, true);
+        serverEmbed
+            .addField("Channels:", channelCount, true);
+        if (guild.roles.cache.size > 1) serverEmbed.addField("Roles:", guild.roles.cache.size - 1, true);
+        if (guild.emojis.cache.size > 0) serverEmbed.addField("Emotes:", `${guild.emojis.cache.size} 😳`, true);
         if (guild.premiumSubscriptionCount > 0) serverEmbed.addField("Nitro Boosts:", `${guild.premiumSubscriptionCount}${nitroEmote}`, true);
         serverEmbed
-            .addField("Created at:", `${guild.createdAt.toUTCString().substr(0, 16)}, ${checkDays(guild.createdAt)}.`)
-            .setFooter(`Requested by ${message.author.tag}`)
+            .addField("Created at:", `${guild.createdAt.toUTCString().substr(5,)}
+${checkDays(guild.createdAt)}`)
+            .setImage(banner)
+            .setFooter(message.author.tag)
             .setTimestamp();
 
         return message.channel.send(serverEmbed);
+
+        function checkDays(date) {
+            let now = new Date();
+            let diff = now.getTime() - date.getTime();
+            let days = Math.floor(diff / 86400000);
+            return days + (days == 1 ? " day" : " days") + " ago";
+        };
 
     } catch (e) {
         // log error
